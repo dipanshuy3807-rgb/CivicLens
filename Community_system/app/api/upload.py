@@ -1,28 +1,28 @@
-from fastapi import APIRouter, UploadFile, File
-from app.services.extractor import extract_data
-from app.core.db import SessionLocal
-from app.models.issue import Issue
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from sqlalchemy.orm import Session
+from uuid import uuid4
+
+from app.core.db import get_db
+from app.services.ingestion_service import ingest_report
 
 router = APIRouter()
 
+
 @router.post("/upload")
-def upload_file(file: UploadFile = File(...)):
-    data = extract_data()
+async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    file_bytes = await file.read()
+    batch_id = str(uuid4())
 
-    db = SessionLocal()
-
-    new_issue = Issue(
-        issue_type=data["issue_type"],
-        severity=data["severity"],
-        people_affected=data["people_affected"],
-        location=data["location"]
-    )
-
-    db.add(new_issue)
-    db.commit()
-    db.close()
-
-    return {"message": "File processed and issue created"}
-@router.post("/upload")
-def upload_file(file: UploadFile = File(...)):
-    return {"filename": file.filename}
+    try:
+        return ingest_report(
+            db,
+            file_bytes=file_bytes,
+            content_type=file.content_type,
+            batch_id=batch_id,
+            filename=file.filename,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
