@@ -94,6 +94,9 @@ def _serialize_issue(issue: Issue) -> dict:
         "latitude": issue.latitude,
         "longitude": issue.longitude,
         "priority_score": issue.priority_score,
+        "assigned_volunteer": issue.assigned_volunteer,
+        "assigned_to": issue.assigned_to,
+        "status": issue.status,
         "created_at": issue.created_at.isoformat() if issue.created_at else None,
     }
 

@@ -1,43 +1,35 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { getIssues, matchVolunteers } from '../api'
-
-const ISSUE_SKILL_MAP = {
-  'Garbage Overflow': 'cleanup',
-  'Water Shortage': 'logistics',
-  'Road Damage': 'rescue',
-  'Power Issue': 'technical',
-  'Sewage Problem': 'cleanup',
-}
+import { useEffect, useState } from 'react'
+import { Link, Navigate } from 'react-router-dom'
+import { acceptIssue, getAuthUser, getVolunteerTasks, rejectIssue } from '../api'
 
 function VolunteerDashboardPage() {
-  const [profile, setProfile] = useState({
-    name: '',
-    skills: '',
-    location: '',
-  })
-  const [allIssues, setAllIssues] = useState([])
-  const [visibleIssues, setVisibleIssues] = useState([])
-  const [matchResults, setMatchResults] = useState({})
+  const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [activeMatchIssueId, setActiveMatchIssueId] = useState(null)
+  const [updatingIssueId, setUpdatingIssueId] = useState(null)
+  const currentUser = getAuthUser()
+  const needsOnboarding = !currentUser?.onboarding_completed
 
   useEffect(() => {
+    if (needsOnboarding) {
+      setLoading(false)
+      return undefined
+    }
+
     let isMounted = true
 
-    async function loadIssues() {
+    async function loadTasks() {
+      setLoading(true)
+      setError('')
+
       try {
-        setLoading(true)
-        const issues = await getIssues()
-        if (!isMounted) {
-          return
-        }
-        setAllIssues(issues)
-        setVisibleIssues(issues)
-      } catch (loadError) {
+        const assignedTasks = await getVolunteerTasks()
         if (isMounted) {
-          setError(loadError.message || 'Failed to load issues.')
+          setTasks(assignedTasks)
+        }
+      } catch (taskError) {
+        if (isMounted) {
+          setError(taskError.message || 'Failed to load assigned tasks.')
         }
       } finally {
         if (isMounted) {
@@ -46,204 +38,173 @@ function VolunteerDashboardPage() {
       }
     }
 
-    void loadIssues()
+    void loadTasks()
 
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [needsOnboarding])
 
-  const normalizedSkills = useMemo(
-    () =>
-      profile.skills
-        .split(',')
-        .map((skill) => skill.trim().toLowerCase())
-        .filter(Boolean),
-    [profile.skills],
-  )
-
-  function handleChange(field) {
-    return (event) => {
-      setProfile((currentProfile) => ({
-        ...currentProfile,
-        [field]: event.target.value,
-      }))
-    }
-  }
-
-  function handleSaveProfile(event) {
-    event.preventDefault()
+  async function updateTaskStatus(issueId, action) {
+    setUpdatingIssueId(issueId)
     setError('')
-
-    if (!normalizedSkills.length) {
-      setVisibleIssues(allIssues)
-      return
-    }
-
-    const filteredIssues = allIssues.filter((issue) => {
-      const requiredSkill = ISSUE_SKILL_MAP[issue.issue_type] || 'general'
-      return normalizedSkills.includes(requiredSkill) || normalizedSkills.includes('general')
-    })
-
-    setVisibleIssues(filteredIssues)
-  }
-
-  async function handleViewMatches(issueId) {
-    setError('')
-    setActiveMatchIssueId(issueId)
 
     try {
-      const result = await matchVolunteers(issueId)
-      setMatchResults((currentMatches) => ({
-        ...currentMatches,
-        [issueId]: result,
-      }))
-    } catch (matchError) {
-      setError(matchError.message || 'Failed to load volunteer matches.')
+      const response = action === 'accept'
+        ? await acceptIssue(issueId)
+        : await rejectIssue(issueId)
+      setTasks((currentTasks) => replaceIssue(currentTasks, response.issue))
+    } catch (taskError) {
+      setError(taskError.message || 'Failed to update task.')
     } finally {
-      setActiveMatchIssueId(null)
+      setUpdatingIssueId(null)
     }
   }
 
-  function handleMarkComplete(issueId) {
-    setVisibleIssues((currentIssues) => currentIssues.filter((issue) => issue.id !== issueId))
+  if (needsOnboarding) {
+    return <Navigate to="/volunteer/onboarding" replace />
   }
 
   return (
-    <main className="page-shell dashboard-page">
-      <div className="page-frame">
-        <header className="dashboard-topbar">
-          <div className="section-header">
+    <main className="civic-dashboard civic-volunteer-dashboard">
+      <aside className="civic-sidebar">
+        <div className="civic-brand">
+          <span className="civic-brand-mark" />
+          <strong>CivicLens</strong>
+        </div>
+
+        <nav className="civic-nav" aria-label="Volunteer sections">
+          <span className="civic-nav-label">Volunteer</span>
+          <button className="civic-nav-item civic-nav-item-active" type="button">
+            <span className="civic-nav-icon">T</span>
+            Tasks
+          </button>
+        </nav>
+
+        <div className="civic-sidebar-footer">
+          <Link className="civic-link-button" to="/">Back Home</Link>
+        </div>
+      </aside>
+
+      <section className="civic-workspace">
+        <header className="civic-topbar">
+          <div>
             <span className="eyebrow">Volunteer Dashboard</span>
-            <h1>Stay ready for local response work</h1>
-            <p>
-              Volunteers can register their skills, update location, and review assigned
-              field issues from one simple workspace.
-            </p>
+            <h1 className="volunteer-page-title">Assigned field tasks</h1>
           </div>
-          <div className="topbar-actions">
-            <Link className="ghost-button" to="/">
-              Back Home
-            </Link>
+          <div className="civic-user-chip">
+            <span>{getInitials(currentUser?.name)}</span>
+            <div>
+              <strong>{currentUser?.name || 'Volunteer'}</strong>
+              <small>{currentUser?.skill || 'Ready'} · {currentUser?.availability || 'Available'}</small>
+            </div>
           </div>
         </header>
 
         {error ? <div className="feedback-banner error-banner">{error}</div> : null}
 
-        <section className="volunteer-layout">
-          <div className="form-card">
-            <h2>Volunteer Profile</h2>
-            <form className="form-stack" onSubmit={handleSaveProfile}>
-              <label className="input-label" htmlFor="volunteer-name">
-                Name
-                <input
-                  id="volunteer-name"
-                  className="input-control"
-                  type="text"
-                  placeholder="Your full name"
-                  value={profile.name}
-                  onChange={handleChange('name')}
-                />
-              </label>
-              <label className="input-label" htmlFor="volunteer-skills">
-                Skills
-                <input
-                  id="volunteer-skills"
-                  className="input-control"
-                  type="text"
-                  placeholder="cleanup, logistics, medical"
-                  value={profile.skills}
-                  onChange={handleChange('skills')}
-                />
-              </label>
-              <label className="input-label" htmlFor="volunteer-location">
-                Location
-                <input
-                  id="volunteer-location"
-                  className="input-control"
-                  type="text"
-                  placeholder="Virar West"
-                  value={profile.location}
-                  onChange={handleChange('location')}
-                />
-              </label>
-              <button className="button" type="submit">
-                Save Profile
-              </button>
-            </form>
-          </div>
+        <section className="civic-panel">
+          <PanelHeading
+            title="My Tasks"
+            meta={loading ? 'Loading...' : `${tasks.length} assigned`}
+          />
 
-          <div className="panel-card">
-            <div className="panel-heading">
-              <h2>Assigned Issues</h2>
-              <span className="panel-meta">
-                {loading ? 'Loading issues...' : `${visibleIssues.length} visible`}
-              </span>
-            </div>
-            <div className="volunteer-list volunteer-scroll-list">
-              {loading ? (
-                <p className="placeholder-copy">Loading issues...</p>
-              ) : visibleIssues.length ? (
-                visibleIssues.map((issue) => {
-                  const matches = matchResults[issue.id]
-                  return (
-                    <article className="task-item" key={issue.id}>
-                      <h3>{issue.issue_type}</h3>
-                      <p className="task-meta">
-                        {issue.location || 'Unknown location'} · Priority {issue.priority_score}
-                      </p>
-                      <p className="muted-copy">
-                        Required skill: {ISSUE_SKILL_MAP[issue.issue_type] || 'general'}
-                      </p>
-                      <div className="task-actions-row">
-                        <button
-                          className="ghost-button task-inline-button"
-                          type="button"
-                          onClick={() => handleViewMatches(issue.id)}
-                          disabled={activeMatchIssueId === issue.id}
-                        >
-                          {activeMatchIssueId === issue.id ? 'Loading...' : 'View Matches'}
-                        </button>
-                        <button
-                          className="button task-inline-button"
-                          type="button"
-                          onClick={() => handleMarkComplete(issue.id)}
-                        >
-                          Mark Complete
-                        </button>
-                      </div>
+          <div className="volunteer-task-grid">
+            {loading ? (
+              <SkeletonList rows={4} />
+            ) : tasks.length ? (
+              tasks.map((task) => (
+                <article className="volunteer-task-card" key={task.id}>
+                  <div className="civic-assignment-head">
+                    <div>
+                      <strong>{task.issue_type}</strong>
+                      <span>{task.location || 'Unknown location'} · Priority {task.priority_score}</span>
+                    </div>
+                    <StatusBadge status={task.status} />
+                  </div>
 
-                      {matches ? (
-                        <div className="match-result-card">
-                          <strong>Required Skill: {matches.required_skill}</strong>
-                          {matches.matched_volunteers?.length ? (
-                            <ul className="match-list">
-                              {matches.matched_volunteers.map((volunteer) => (
-                                <li key={volunteer.id}>
-                                  {volunteer.name} · {volunteer.location} ·{' '}
-                                  {(volunteer.skills || []).join(', ')}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="muted-copy">No volunteer matches returned yet.</p>
-                          )}
-                        </div>
-                      ) : null}
-                    </article>
-                  )
-                })
-              ) : (
-                <p className="placeholder-copy">
-                  No matched issues yet. Save a profile with skills to filter assignments.
-                </p>
-              )}
-            </div>
+                  <p className="muted-copy">
+                    People affected: {task.people_affected ?? 'Unknown'}
+                  </p>
+
+                  <div className="task-actions-row">
+                    <button
+                      className="button task-inline-button"
+                      type="button"
+                      disabled={updatingIssueId === task.id || task.status === 'accepted'}
+                      onClick={() => updateTaskStatus(task.id, 'accept')}
+                    >
+                      Accept
+                    </button>
+                    <button
+                      className="ghost-button task-inline-button danger-action"
+                      type="button"
+                      disabled={updatingIssueId === task.id || task.status === 'rejected'}
+                      onClick={() => updateTaskStatus(task.id, 'reject')}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <EmptyState
+                icon="T"
+                message="Assigned issues from NGOs will appear here."
+                title="No assigned tasks"
+              />
+            )}
           </div>
         </section>
-      </div>
+      </section>
     </main>
   )
+}
+
+function StatusBadge({ status }) {
+  return <span className={`task-status task-status-${status || 'open'}`}>{status || 'open'}</span>
+}
+
+function PanelHeading({ title, meta }) {
+  return (
+    <div className="panel-heading">
+      <h2>{title}</h2>
+      <span className="panel-meta">{meta}</span>
+    </div>
+  )
+}
+
+function EmptyState({ icon, message, title }) {
+  return (
+    <div className="civic-empty-state">
+      <span>{icon}</span>
+      <strong>{title}</strong>
+      <p>{message}</p>
+    </div>
+  )
+}
+
+function SkeletonList({ rows }) {
+  return (
+    <div className="civic-skeleton-list">
+      {Array.from({ length: rows }).map((_, index) => (
+        <span className="civic-skeleton civic-skeleton-row" key={index} />
+      ))}
+    </div>
+  )
+}
+
+function replaceIssue(issues, updatedIssue) {
+  return issues.map((issue) => (issue.id === updatedIssue.id ? { ...issue, ...updatedIssue } : issue))
+}
+
+function getInitials(name) {
+  return (name || 'Volunteer')
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 }
 
 export default VolunteerDashboardPage

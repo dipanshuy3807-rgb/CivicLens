@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Float, Integer, String
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
 
 from app.core.db import Base
 
@@ -17,4 +17,7 @@ class Issue(Base):
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     priority_score = Column(Integer, nullable=False, index=True)
+    assigned_volunteer = Column(String, nullable=True)
+    assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    status = Column(String, default="open", nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

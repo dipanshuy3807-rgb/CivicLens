@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { FileText, Sparkles, Upload, X } from 'lucide-react'
 import { uploadIssue } from '../api'
 
 const LAST_ISSUE_ID_KEY = 'civiclens_latest_issue_id'
@@ -43,6 +44,8 @@ function NgoUploadPage() {
 
       if (response.batch_id) {
         localStorage.setItem(LAST_BATCH_ID_KEY, response.batch_id)
+      } else {
+        localStorage.removeItem(LAST_BATCH_ID_KEY)
       }
 
       localStorage.setItem(LAST_UPLOAD_DATA_KEY, JSON.stringify(response))
@@ -55,39 +58,59 @@ function NgoUploadPage() {
   }
 
   return (
-    <main className="page-shell dashboard-page">
-      <div className="page-frame compact-page-frame">
-        <header className="dashboard-topbar">
+    <main className="upload-intake-page">
+      <div className="upload-intake-frame">
+        <header className="upload-intake-header">
+          <Link className="upload-back-link" to="/">
+            ← Back Home
+          </Link>
           <div className="section-header">
-            <span className="eyebrow">NGO Upload</span>
-            <h1>Submit a fresh field report</h1>
+            <span className="eyebrow">Document intake</span>
+            <h1>Upload Your Document</h1>
             <p>
-              Upload a report file or paste extracted text. After submission, CivicLens
-              takes you straight to the live results dashboard.
+              Supports PDF and image files up to 20MB.
             </p>
-          </div>
-          <div className="topbar-actions">
-            <Link className="ghost-button" to="/">
-              Back Home
-            </Link>
           </div>
         </header>
 
         {error ? <div className="feedback-banner error-banner">{error}</div> : null}
 
         <section className="single-column-layout">
-          <div className="form-card upload-focus-card">
-            <h2>Upload Report</h2>
+          <div className="upload-focus-card">
             <form className="form-stack" onSubmit={handleSubmit}>
-              <label className="input-label" htmlFor="ngo-upload-file">
-                File upload
+              <label className={`upload-drop-zone ${selectedFile ? 'upload-drop-zone-active' : ''}`} htmlFor="ngo-upload-file">
                 <input
                   id="ngo-upload-file"
-                  className="input-control"
+                  className="upload-file-input"
                   type="file"
+                  accept=".pdf,image/png,image/jpeg,image/jpg,image/webp"
                   onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
                 />
+                <Upload size={48} strokeWidth={1.6} />
+                <strong>Drag & drop files here</strong>
+                <span>or click to browse</span>
               </label>
+
+              {selectedFile ? (
+                <div className="selected-file-card">
+                  <FileText size={22} />
+                  <div>
+                    <strong>{selectedFile.name}</strong>
+                    <span>{formatFileSize(selectedFile.size)}</span>
+                  </div>
+                  <button type="button" aria-label="Remove file" onClick={() => setSelectedFile(null)}>
+                    <X size={18} />
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="file-type-badges" aria-label="Supported file types">
+                <span>PDF</span>
+                <span>PNG</span>
+                <span>JPG</span>
+                <span>WEBP</span>
+              </div>
+
               <label className="input-label" htmlFor="ngo-upload-text">
                 Optional text
                 <textarea
@@ -98,8 +121,19 @@ function NgoUploadPage() {
                   onChange={(event) => setNotes(event.target.value)}
                 />
               </label>
+
+              {selectedFile || uploading ? (
+                <div className="upload-status-area">
+                  <div className="upload-progress-track">
+                    <span />
+                  </div>
+                  <p>{uploading ? 'Analyzing document...' : 'Ready to process'}</p>
+                </div>
+              ) : null}
+
               <button className="button" type="submit" disabled={uploading}>
-                {uploading ? 'Submitting...' : 'Submit and View Results'}
+                <Sparkles size={18} />
+                {uploading ? 'Submitting...' : 'Process Document'}
               </button>
             </form>
           </div>
@@ -107,6 +141,16 @@ function NgoUploadPage() {
       </div>
     </main>
   )
+}
+
+function formatFileSize(size) {
+  if (!Number.isFinite(size)) {
+    return 'Unknown size'
+  }
+  if (size < 1024 * 1024) {
+    return `${Math.max(size / 1024, 1).toFixed(1)} KB`
+  }
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
 export default NgoUploadPage

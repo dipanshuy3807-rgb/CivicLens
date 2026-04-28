@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.auth import require_role
 from app.core.db import get_db
 from app.models.issue import Issue
+from app.models.user import User
 from app.services.batch_service import get_latest_batch_id
 from app.services.matching_service import get_required_skill, get_top_match, match_volunteers
 
@@ -13,6 +15,7 @@ router = APIRouter()
 def get_batch_matches(
     batch_id: str | None = Query(default=None),
     db: Session = Depends(get_db),
+    _current_user: User = Depends(require_role("ngo")),
 ):
     resolved_batch_id = batch_id or get_latest_batch_id(db)
     if resolved_batch_id is None:
@@ -38,7 +41,11 @@ def get_batch_matches(
 
 
 @router.get("/match/{issue_id}")
-def get_issue_matches(issue_id: int, db: Session = Depends(get_db)):
+def get_issue_matches(
+    issue_id: int,
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(require_role("ngo")),
+):
     issue = db.query(Issue).filter(Issue.id == issue_id).first()
     if issue is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
@@ -56,13 +63,16 @@ def get_issue_matches(issue_id: int, db: Session = Depends(get_db)):
 
 
 def _serialize_volunteer(volunteer) -> dict:
+    skills = getattr(volunteer, "skills", None) or getattr(volunteer, "skill", None) or ""
     return {
         "id": volunteer.id,
         "name": volunteer.name,
-        "skills": [skill for skill in volunteer.skills.split(",") if skill],
+        "email": getattr(volunteer, "email", None),
+        "skills": [skill for skill in skills.split(",") if skill],
         "location": volunteer.location,
-        "latitude": volunteer.latitude,
-        "longitude": volunteer.longitude,
+        "availability": getattr(volunteer, "availability", None),
+        "latitude": getattr(volunteer, "latitude", None),
+        "longitude": getattr(volunteer, "longitude", None),
         "created_at": volunteer.created_at.isoformat() if volunteer.created_at else None,
     }
 
@@ -78,6 +88,9 @@ def _serialize_issue(issue: Issue) -> dict:
         "latitude": issue.latitude,
         "longitude": issue.longitude,
         "priority_score": issue.priority_score,
+        "assigned_volunteer": issue.assigned_volunteer,
+        "assigned_to": issue.assigned_to,
+        "status": issue.status,
         "created_at": issue.created_at.isoformat() if issue.created_at else None,
     }
 

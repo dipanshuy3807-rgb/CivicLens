@@ -2,14 +2,20 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 from uuid import uuid4
 
+from app.core.auth import require_role
 from app.core.db import get_db
+from app.models.user import User
 from app.services.ingestion_service import ingest_report
 
 router = APIRouter()
 
 
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(require_role("ngo")),
+):
     file_bytes = await file.read()
     batch_id = str(uuid4())
 

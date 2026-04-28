@@ -6,65 +6,70 @@ from app.models.volunteer import Volunteer
 SAMPLE_VOLUNTEERS = [
     {
         "name": "Rahul Patil",
-        "skills": "cleanup,general",
+        "skills": "cleanup",
         "location": "Virar West",
         "latitude": 19.45,
         "longitude": 72.81,
     },
     {
         "name": "Priya Sharma",
-        "skills": "logistics,general",
+        "skills": "logistics",
         "location": "Virar East",
         "latitude": 19.46,
         "longitude": 72.82,
     },
     {
         "name": "Amit Jadhav",
-        "skills": "rescue,general",
+        "skills": "infrastructure",
         "location": "Vasai Road",
         "latitude": 19.39,
         "longitude": 72.84,
     },
     {
         "name": "Sneha More",
-        "skills": "technical,general",
+        "skills": "infrastructure",
         "location": "Vasai East",
         "latitude": 19.41,
         "longitude": 72.88,
     },
     {
-        "name": "Karan Naik",
-        "skills": "cleanup,general",
-        "location": "Nallasopara West",
-        "latitude": 19.42,
-        "longitude": 72.82,
-    },
-    {
-        "name": "Neha Sawant",
-        "skills": "logistics,food,general",
-        "location": "Nallasopara East",
-        "latitude": 19.41,
-        "longitude": 72.84,
-    },
-    {
         "name": "Farhan Shaikh",
-        "skills": "rescue,medical,general",
+        "skills": "medical",
         "location": "Arnala Beach",
         "latitude": 19.47,
         "longitude": 72.74,
     },
     {
         "name": "Meera Desai",
-        "skills": "cleanup,technical,general",
+        "skills": "cleanup,infrastructure",
         "location": "Virar Station",
         "latitude": 19.45,
         "longitude": 72.81,
     },
 ]
 
+SAMPLE_VOLUNTEER_NAMES = {
+    "Rahul Patil",
+    "Priya Sharma",
+    "Amit Jadhav",
+    "Sneha More",
+    "Karan Naik",
+    "Neha Sawant",
+    "Farhan Shaikh",
+    "Meera Desai",
+}
+
 
 def seed_sample_volunteers(db: Session) -> list[Volunteer]:
     seeded_volunteers: list[Volunteer] = []
+    current_names = {sample["name"] for sample in SAMPLE_VOLUNTEERS}
+    stale_samples = (
+        db.query(Volunteer)
+        .filter(Volunteer.name.in_(SAMPLE_VOLUNTEER_NAMES - current_names))
+        .all()
+    )
+    for stale_sample in stale_samples:
+        db.delete(stale_sample)
 
     for sample in SAMPLE_VOLUNTEERS:
         existing = (

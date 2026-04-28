@@ -2,15 +2,21 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.auth import require_role
 from app.core.db import get_db
 from app.models.issue import Issue
+from app.models.user import User
 from app.services.batch_service import get_latest_batch_id
 
 router = APIRouter()
 
 
 @router.get("/analytics/heatmap")
-def get_heatmap_data(batch_id: str | None = Query(default=None), db: Session = Depends(get_db)):
+def get_heatmap_data(
+    batch_id: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(require_role("ngo")),
+):
     resolved_batch_id = batch_id or get_latest_batch_id(db)
     if resolved_batch_id is None:
         return []
