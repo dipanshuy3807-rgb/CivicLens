@@ -2,3 +2,5 @@ bcrypt
 certifi
 PyJWT
 email-validator
+mangum
+fastapi

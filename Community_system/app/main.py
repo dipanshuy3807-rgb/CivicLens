@@ -14,7 +14,23 @@ from app.api import volunteers
 from app.services.volunteer_seed_service import seed_sample_volunteers
 from sqlalchemy import inspect, text
 
+from fastapi import FastAPI
+
+from mangum import Mangum
+
 app = FastAPI()
+
+@app.get("/")
+
+def read_root():
+
+    return {"message": "Hello from FastAPI on Vercel"}
+
+handler = Mangum(app)
+
+
+
+
 
 app.add_middleware(
     CORSMiddleware,
