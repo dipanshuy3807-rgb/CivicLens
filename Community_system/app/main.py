@@ -20,13 +20,11 @@ from mangum import Mangum
 
 app = FastAPI()
 
-@app.get("/")
 
-def read_root():
 
-    return {"message": "Hello from FastAPI on Vercel"}
 
-handler = Mangum(app)
+
+
 
 
 
@@ -80,8 +78,13 @@ finally:
 @app.get("/")
 def home():
     return {"message": "API working"}
+def read_root():
 
+    return {"message": "Hello from FastAPI on Vercel"}   
 
+handler = Mangum(app)
+
+    
 app.include_router(upload.router)
 app.include_router(auth.router)
 app.include_router(issues.router)
