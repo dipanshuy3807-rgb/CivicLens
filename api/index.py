@@ -1,17 +1,55 @@
+# from fastapi import FastAPI
+# from fastapi.middleware.cors import CORSMiddleware
+# from mangum import Mangum
+
+# # import your existing routers
+# from Community_system.app.api import analytics, auth, dashboard, issues, match, upload, volunteers
+
+# app = FastAPI()
+
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=[
+#         "http://localhost:5173",
+#         "https://your-vercel-url.vercel.app"
+#     ],
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
+
+# @app.get("/")
+# def home():
+#     return {"message": "API working"}
+
+# app.include_router(upload.router)
+# app.include_router(auth.router)
+# app.include_router(issues.router)
+# app.include_router(dashboard.router)
+# app.include_router(volunteers.router)
+# app.include_router(match.router)
+# app.include_router(analytics.router)
+
+# handler = Mangum(app)
+
+
+
+
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.db import engine, Base, SessionLocal
-from app.models.issue import Issue
-from app.models.user import User
-from app.models.volunteer import Volunteer
-from app.api import analytics
-from app.api import auth
-from app.api import dashboard
-from app.api import issues
-from app.api import match
-from app.api import upload
-from app.api import volunteers
-from app.services.volunteer_seed_service import seed_sample_volunteers
+from Community_system.app.core.db import engine, Base, SessionLocal
+from Community_system.app.models.issue import Issue
+from Community_system.app.models.user import User
+from Community_system.app.models.volunteer import Volunteer
+from Community_system.app.api import analytics
+from Community_system.app.api import auth
+from Community_system.app.api import dashboard
+from Community_system.app.api import issues
+from Community_system.app.api import match
+from Community_system.app.api import upload
+from Community_system.app.api import volunteers
+from Community_system.app.services.volunteer_seed_service import seed_sample_volunteers
 from sqlalchemy import inspect, text
 
 from fastapi import FastAPI
